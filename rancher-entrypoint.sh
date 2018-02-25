@@ -50,7 +50,7 @@ for STACK in $INFRASTACKS; do
 
     # Loop images and pull
     for IMAGE in $STACK_IMAGES; do
-        if [ -z $REGISTRY ]; then
+        if [ -z $REGISTRY ] || [ $REGISTRY == "null" ]; then
             echo "Executing docker pull ${IMAGE}"
             docker pull ${IMAGE}
         else
