@@ -47,10 +47,10 @@ for STACK in $INFRASTACKS; do
     # Check if we need to template
     if `curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -e -r '.files | ."docker-compose.yml.tpl"' > /dev/null`; then
         # Get images for versionLink
-        STACK_IMAGES=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml.tpl"' | gomplate 2>/dev/null | yq r - -j | jq -r .services[].image | sort -u`
+        STACK_IMAGES=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml.tpl"' | gomplate 2>/dev/null | yq r - -j | jq -r '.services[]?.image?, .[]?.image? | select (. != null)' | sort -u`
     else
         # Get images for versionLink
-        STACK_IMAGES=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml"' | yq r - -j | jq -r .services[].image`
+        STACK_IMAGES=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml"' | yq r - -j | jq -r '.services[]?.image?, .[]?.image? | select (. != null)' | sort -u`
     fi
 
     # Check system cpu usage before proceeding
