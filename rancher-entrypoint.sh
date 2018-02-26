@@ -32,6 +32,15 @@ for STACK in $INFRASTACKS; do
     # Example output: catalog://library:infra*ipsec:15
     STACKCATALOGPATH=`echo $STACKEID | awk -F[/*] '{ print $3 }'`
 
+    # Check if catalog-service has a reference for this stack
+    STACK_VERSIONLINK_CURL=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k --write-out "%{http_code}\n" --output /dev/null $CATTLE_URL_CATALOG/templates/$STACKCATALOGPATH*$STACK?rancherVersion=$RANCHER_VERSION`
+
+    # If curl is unsuccessful, skip to next stack (no catalog present with this stack reference)
+    if [ $STACK_VERSIONLINK_CURL -ne 200 ]; then
+        echo "Skipping ${STACK}, no catalog reference found in catalog service"
+        continue
+    fi
+
     # Get the latest versionLink for $RANCHER_VERSION
     STACK_VERSIONLINK=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $CATTLE_URL_CATALOG/templates/$STACKCATALOGPATH*$STACK?rancherVersion=$RANCHER_VERSION | jq -r '.versionLinks[]' | tail -1`
 
