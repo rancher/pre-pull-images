@@ -90,4 +90,15 @@ for STACK in $INFRASTACKS; do
     done
 done
 
+# Get rancher/agent image
+if [ -n "${RANCHER_AGENT_IMAGE}" ]; then
+    if [ -z $REGISTRY ] || [ $REGISTRY == "null" ]; then
+        echo "Executing docker pull ${RANCHER_AGENT_IMAGE}"
+        docker pull ${RANCHER_AGENT_IMAGE}
+    else
+        echo "Executing docker pull ${REGISTRY}/${RANCHER_AGENT_IMAGE}"
+        docker pull ${REGISTRY}/${RANCHER_AGENT_IMAGE}
+    fi
+fi
+
 echo "Finished"
