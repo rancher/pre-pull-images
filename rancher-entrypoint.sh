@@ -74,11 +74,15 @@ for STACK in $INFRASTACKS; do
     # Loop images and pull
     for IMAGE in $STACK_IMAGES; do
         if [ -z $REGISTRY ] || [ $REGISTRY == "null" ]; then
-            echo "Executing docker pull ${IMAGE}"
-            docker pull ${IMAGE}
+            until docker inspect ${IMAGE} > /dev/null 2>&1; do
+                echo "Executing docker pull ${IMAGE}"
+                docker pull ${IMAGE}
+            done
         else
-            echo "Executing docker pull ${REGISTRY}/${IMAGE}"
-            docker pull ${REGISTRY}/${IMAGE}
+            until docker inspect "${REGISTRY}/${IMAGE}" > /dev/null 2>&1; do
+                echo "Executing docker pull ${REGISTRY}/${IMAGE}"
+                docker pull ${REGISTRY}/${IMAGE}
+            done
         fi 
         if [ "${RANDOM_SLEEP}" == "true" ]; then
             HOST_COUNT=`curl -s -H "Accept: application/json" 169.254.169.250/latest/hosts | jq -r '[.[] ]| length'`
@@ -93,11 +97,15 @@ done
 # Get rancher/agent image
 if [ -n "${RANCHER_AGENT_IMAGE}" ]; then
     if [ -z $REGISTRY ] || [ $REGISTRY == "null" ]; then
-        echo "Executing docker pull ${RANCHER_AGENT_IMAGE}"
-        docker pull ${RANCHER_AGENT_IMAGE}
+        until docker inspect ${RANCHER_AGENT_IMAGE} > /dev/null 2>&1; do
+            echo "Executing docker pull ${RANCHER_AGENT_IMAGE}"
+            docker pull ${RANCHER_AGENT_IMAGE}
+        done
     else
-        echo "Executing docker pull ${REGISTRY}/${RANCHER_AGENT_IMAGE}"
-        docker pull ${REGISTRY}/${RANCHER_AGENT_IMAGE}
+        until docker inspect "${REGISTRY}/${RANCHER_AGENT_IMAGE}" > /dev/null 2>&1; do
+            echo "Executing docker pull ${REGISTRY}/${RANCHER_AGENT_IMAGE}"
+            docker pull ${REGISTRY}/${RANCHER_AGENT_IMAGE}
+        done
     fi
 fi
 
