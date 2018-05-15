@@ -5,11 +5,20 @@ fi
 
 echo "Starting for Rancher version: ${RANCHER_VERSION}"
 
-# Create CATTLE_URL for v2-beta
-CATTLE_URL_V2=`echo $CATTLE_URL | sed -e 's_/v1_/v2-beta_'`
 
-# Create CATTLE_URL for catalog endpoint
-CATTLE_URL_CATALOG=`echo $CATTLE_URL | sed -e 's_/v1_/v1-catalog_'`
+if [[ $CATTLE_URL = *"/v1"* ]]; then
+    # Create CATTLE_URL for v2-beta
+    CATTLE_URL_V2=`echo $CATTLE_URL | sed -e 's_/v1_/v2-beta_'`
+
+    # Create CATTLE_URL for catalog endpoint
+    CATTLE_URL_CATALOG=`echo $CATTLE_URL | sed -e 's_/v1_/v1-catalog_'`
+else
+     # Create CATTLE_URL for v2-beta
+    CATTLE_URL_V2=$CATTLE_URL
+
+    # Create CATTLE_URL for catalog endpoint
+    CATTLE_URL_CATALOG=`echo $CATTLE_URL | sed -e 's_/v2-beta_/v1-catalog_'`
+fi
 
 # Get environment name
 ENV_NAME=`curl -s -k 169.254.169.250/latest/self/stack/environment_name`
