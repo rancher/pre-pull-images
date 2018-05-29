@@ -1,6 +1,6 @@
 ---
 pipeline:
-  publish-rke-certs-deployer:
+  publish-pre-pull-images:
     image: plugins/docker
     dockerfile: Dockerfile
     repo: rancher/pre-pull-images
