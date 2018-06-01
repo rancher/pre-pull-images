@@ -3,6 +3,10 @@ if [ "${RANCHER_DEBUG}" == "true" ]; then
     set -x
 fi
 
+export acurl="curl -s -k --connect-timeout 10 --max-time 30 --retry 5 -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY $@"
+export curl="curl -s -k --connect-timeout 10 --max-time 30 --retry 5 $@"
+
+
 echo "Starting for Rancher version: ${RANCHER_VERSION}"
 
 
@@ -21,28 +25,28 @@ else
 fi
 
 # Get environment name
-ENV_NAME=`curl -s -k 169.254.169.250/latest/self/stack/environment_name`
+ENV_NAME=$($curl 169.254.169.250/latest/self/stack/environment_name)
 
 # Get id from environment name
-ENV_ID=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $CATTLE_URL_V2/projects?name=$ENV_NAME | jq -r .data[].id`
+ENV_ID=$($acurl $CATTLE_URL_V2/projects?name=$ENV_NAME | jq -r .data[].id)
 
 # Check for default registry setting (private registry)
-REGISTRY=`curl -s -k $CATTLE_URL_V2/settings/registry.default | jq -r .value`
+REGISTRY=$($acurl $CATTLE_URL_V2/settings/registry.default | jq -r .value)
 
 # Find all the infra stacks
-INFRASTACKS=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $CATTLE_URL_V2/stacks?system=true\&accountId=$ENV_ID | jq -r .data[].name`
+INFRASTACKS=$($acurl $CATTLE_URL_V2/stacks?system=true\&accountId=$ENV_ID | jq -r .data[].name)
 
 echo -e "Found infrastructure stacks:\n${INFRASTACKS}"
 
 # Loop through all infra stacks to pull the needed images
 for STACK in $INFRASTACKS; do
     # Get externalID and strip catalog name to identify stack
-    STACKEID=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $CATTLE_URL_V2/stacks?system=true\&accountId=$ENV_ID\&name=$STACK | jq -r .data[].externalId`
+    STACKEID=$($acurl $CATTLE_URL_V2/stacks?system=true\&accountId=$ENV_ID\&name=$STACK | jq -r .data[].externalId)
     # Example output: catalog://library:infra*ipsec:15
     STACKCATALOGPATH=`echo $STACKEID | sed -e 's_catalog://\(.*\):.*$_\1_'`
 
     # Check if catalog-service has a reference for this stack
-    STACK_VERSIONLINK_CURL=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k --write-out "%{http_code}\n" --output /dev/null $CATTLE_URL_CATALOG/templates/$STACKCATALOGPATH?rancherVersion=$RANCHER_VERSION`
+    STACK_VERSIONLINK_CURL=$($acurl --write-out "%{http_code}\n" --output /dev/null $CATTLE_URL_CATALOG/templates/$STACKCATALOGPATH?rancherVersion=$RANCHER_VERSION)
 
     # If curl is unsuccessful, skip to next stack (no catalog present with this stack reference)
     if [ $STACK_VERSIONLINK_CURL -ne 200 ]; then
@@ -51,15 +55,15 @@ for STACK in $INFRASTACKS; do
     fi
 
     # Get the latest versionLink for $RANCHER_VERSION
-    STACK_VERSIONLINK=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $CATTLE_URL_CATALOG/templates/$STACKCATALOGPATH?rancherVersion=$RANCHER_VERSION | jq -r '.versionLinks[]' | tail -1`
+    STACK_VERSIONLINK=$($acurl $CATTLE_URL_CATALOG/templates/$STACKCATALOGPATH?rancherVersion=$RANCHER_VERSION | jq -r '.versionLinks[]' | tail -1)
 
     # Check if we need to template
-    if `curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -e -r '.files | ."docker-compose.yml.tpl"' > /dev/null`; then
+    if $($acurl $STACK_VERSIONLINK | jq -e -r '.files | ."docker-compose.yml.tpl"' > /dev/null); then
         # Get images for versionLink
-        STACK_IMAGES=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml.tpl"' | gomplate 2>/dev/null | yq r - -j | jq -r '.services[]?.image?, .[]?.image? | select (. != null)' | sort -u`
+        STACK_IMAGES=$($acurl $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml.tpl"' | gomplate 2>/dev/null | yq r - -j | jq -r '.services[]?.image?, .[]?.image? | select (. != null)' | sort -u)
     else
         # Get images for versionLink
-        STACK_IMAGES=`curl -u $CATTLE_ACCESS_KEY:$CATTLE_SECRET_KEY -s -k $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml"' | yq r - -j | jq -r '.services[]?.image?, .[]?.image? | select (. != null)' | sort -u`
+        STACK_IMAGES=$($acurl $STACK_VERSIONLINK | jq -r '.files."docker-compose.yml"' | yq r - -j | jq -r '.services[]?.image?, .[]?.image? | select (. != null)' | sort -u)
     fi
 
     # Check system cpu usage before proceeding
@@ -85,7 +89,7 @@ for STACK in $INFRASTACKS; do
             done
         fi 
         if [ "${RANDOM_SLEEP}" == "true" ]; then
-            HOST_COUNT=`curl -s -H "Accept: application/json" 169.254.169.250/latest/hosts | jq -r '[.[] ]| length'`
+            HOST_COUNT=$($curl -H "Accept: application/json" 169.254.169.250/latest/hosts | jq -r '[.[] ]| length')
             HOST_COUNT_SOURCE="$(($HOST_COUNT * 10))"
             SLEEP=$((RANDOM % $HOST_COUNT_SOURCE))
             echo "Random sleep: ${SLEEP}s"
